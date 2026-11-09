@@ -3,7 +3,7 @@
 # Run scripts/configure-repo.(sh|ps1) once to set your GitHub username in the image path.
 image:
   repository: ghcr.io/ayyappanmj/cloudpilot
-  tag: "latest"
+  tag: "sha-d5ccdc27c815"
   pullPolicy: IfNotPresent
 service:
   type: NodePort
