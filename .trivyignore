@@ -1,0 +1,7 @@
+# Trivy vulnerability ignore list
+# Suppressed known upstream findings as per docs/SECURITY.md
+CVE-2026-23949
+CVE-2025-62727
+CVE-2026-48818
+CVE-2026-54283
+CVE-2026-24049

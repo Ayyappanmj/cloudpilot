@@ -90,6 +90,7 @@ jobs:
           scanners: vuln,secret,misconfig
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore
           exit-code: "1"
 
       - name: Build image
@@ -106,6 +107,7 @@ jobs:
           image-ref: ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.tag }}
           format: sarif
           output: trivy-image.sarif
+          trivyignores: .trivyignore
           exit-code: "0"
 
       - name: Upload SARIF to GitHub Security
@@ -121,6 +123,7 @@ jobs:
           format: table
           severity: CRITICAL,HIGH
           ignore-unfixed: true
+          trivyignores: .trivyignore
           exit-code: "1"
 
       - name: Log in to GHCR

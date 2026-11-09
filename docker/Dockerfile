@@ -16,7 +16,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     CLOUDPILOT_GIT_COMMIT=${GIT_COMMIT}
 # Numeric UID/GID so Kubernetes can verify runAsNonRoot.
 RUN groupadd --system --gid 10001 app \
- && useradd --system --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin app
+ && useradd --system --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin app \
+ && pip uninstall -y setuptools wheel
 WORKDIR /srv
 COPY --from=builder /install /usr/local
 COPY app ./app
