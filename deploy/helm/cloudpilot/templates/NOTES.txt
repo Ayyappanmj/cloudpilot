@@ -1,0 +1,17 @@
+CloudPilot {{ .Chart.AppVersion }} deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Image: {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+
+{{- if eq .Values.service.type "NodePort" }}
+
+Open: http://localhost:8080  (Kind maps host 8080 -> NodePort {{ .Values.service.nodePort }})
+{{- else }}
+
+Port-forward:
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "cloudpilot.fullname" . }} 8080:{{ .Values.service.port }}
+Then open http://localhost:8080
+{{- end }}
+
+Check:
+  kubectl get pods -n {{ .Release.Namespace }}
+  curl http://localhost:8080/readyz

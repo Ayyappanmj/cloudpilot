@@ -1,0 +1,49 @@
+# Loaded by Prometheus (Kubernetes: via scripts/start-monitoring; Compose: mounted file).
+# Thresholds are examples for a local lab - tune them in docs/MONITORING.md.
+groups:
+  - name: cloudpilot
+    rules:
+      - alert: CloudPilotDown
+        expr: absent(up{job="cloudpilot"}) or sum(up{job="cloudpilot"}) == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "CloudPilot has no healthy scrape target"
+          description: "No target for job=cloudpilot is up. Check pods and /metrics."
+      - alert: CloudPilotHigh5xxRate
+        expr: |
+          sum(rate(http_requests_total{job="cloudpilot",status=~"5.."}[5m]))
+            / sum(rate(http_requests_total{job="cloudpilot"}[5m])) > 0.05
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "More than 5% of requests return 5xx"
+      - alert: CloudPilotHighLatencyP95
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="cloudpilot"}[5m]))) > 0.5
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "p95 latency above 500 ms"
+      - alert: CloudPilotPodRestarting
+        expr: increase(kube_pod_container_status_restarts_total{namespace="cloudpilot"}[15m]) > 2
+        for: 0m
+        labels: {severity: warning}
+        annotations:
+          summary: "Container restarted more than twice in 15 minutes"
+      - alert: CloudPilotHighCPU
+        expr: |
+          sum by (pod) (rate(container_cpu_usage_seconds_total{namespace="cloudpilot",container="cloudpilot"}[5m]))
+            / sum by (pod) (kube_pod_container_resource_limits{namespace="cloudpilot",container="cloudpilot",resource="cpu"}) > 0.8
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "CPU usage above 80% of the limit"
+      - alert: CloudPilotHighMemory
+        expr: |
+          sum by (pod) (container_memory_working_set_bytes{namespace="cloudpilot",container="cloudpilot"})
+            / sum by (pod) (kube_pod_container_resource_limits{namespace="cloudpilot",container="cloudpilot",resource="memory"}) > 0.85
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "Memory usage above 85% of the limit (OOMKill risk)"

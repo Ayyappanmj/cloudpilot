@@ -1,0 +1,14 @@
+# NOTE: Kind's default CNI may not enforce NetworkPolicy. The manifest is valid; enforcement
+# requires a policy-capable CNI (Calico/Cilium). See docs/KUBERNETES.md.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: cloudpilot, namespace: cloudpilot}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: cloudpilot}}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - ports: [{port: 8000, protocol: TCP}]
+  egress:
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+      ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]

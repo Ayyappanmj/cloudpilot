@@ -1,0 +1,55 @@
+# MODE 1 (development). App only by default.
+#   docker compose up -d --build
+# Optional monitoring (do NOT run together with Kubernetes monitoring - see docs/OPERATING_MODES.md):
+#   docker compose --profile monitoring up -d
+name: cloudpilot
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: cloudpilot-sample:local
+    container_name: cloudpilot-app
+    env_file: [.env]
+    ports: ["127.0.0.1:8000:8000"]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 192m
+    cpus: 0.5
+    restart: "no"
+
+  prometheus:
+    profiles: [monitoring]
+    image: prom/prometheus:v2.55.1
+    container_name: cloudpilot-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=2d
+      - --storage.tsdb.retention.size=500MB
+    volumes:
+      - ./monitoring/prometheus/prometheus-compose.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts/cloudpilot-alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports: ["127.0.0.1:9090:9090"]
+    mem_limit: 256m
+    cpus: 0.5
+    depends_on: [app]
+
+  grafana:
+    profiles: [monitoring]
+    image: grafana/grafana-oss:11.4.0
+    container_name: cloudpilot-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ./monitoring/grafana/provisioning/datasources/prometheus-compose.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+      - ./monitoring/grafana/provisioning/dashboards/provider.yml:/etc/grafana/provisioning/dashboards/provider.yml:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards/cloudpilot:ro
+    ports: ["127.0.0.1:3000:3000"]
+    mem_limit: 384m
+    cpus: 0.5
+    depends_on: [prometheus]

@@ -1,0 +1,13 @@
+# Values Argo CD applies on top of deploy/helm/cloudpilot/values.yaml.
+# GitHub Actions rewrites ONLY the image.tag line below after a successful build.
+# Run scripts/configure-repo.(sh|ps1) once to set your GitHub username in the image path.
+image:
+  repository: ghcr.io/ayyappanmj/cloudpilot
+  tag: "latest"
+  pullPolicy: IfNotPresent
+service:
+  type: NodePort
+  nodePort: 30080
+config:
+  CLOUDPILOT_ENVIRONMENT: "local-gitops"
+  CLOUDPILOT_ENABLE_FAULT_INJECTION: "true"

@@ -1,0 +1,32 @@
+# Run scripts/configure-repo.sh|ps1 to set your GitHub username, commit + push, then
+# scripts/setup-argocd.sh applies this file. Argo CD does not read this file from Git - it is applied once.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cloudpilot
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Ayyappanmj/cloudpilot.git
+    targetRevision: main
+    path: deploy/helm/cloudpilot
+    helm:
+      releaseName: cloudpilot
+      valueFiles:
+        - ../../../gitops/environments/local/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cloudpilot          # created by Terraform, so CreateNamespace is intentionally NOT set
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ApplyOutOfSyncOnly=true
+      - PruneLast=true
+    retry:
+      limit: 3
+      backoff: {duration: 10s, factor: 2, maxDuration: 2m}

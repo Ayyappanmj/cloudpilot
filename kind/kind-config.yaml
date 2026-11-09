@@ -1,0 +1,15 @@
+# Single-node Kind cluster sized for an 8 GB laptop.
+# The control-plane node also runs workloads (Kind removes the taint on single-node clusters).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: cloudpilot
+nodes:
+  - role: control-plane
+    # Pinned node image (matches Kind v0.25.x). See docs/HARDWARE_REQUIREMENTS.md to update.
+    image: kindest/node:v1.31.2
+    extraPortMappings:
+      # Application NodePort 30080 -> http://localhost:8080 (localhost only)
+      - containerPort: 30080
+        hostPort: 8080
+        listenAddress: "127.0.0.1"
+        protocol: TCP

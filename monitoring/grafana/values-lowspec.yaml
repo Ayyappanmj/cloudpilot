@@ -1,0 +1,40 @@
+# grafana/grafana chart, trimmed. No persistence: dashboards come from files, so nothing is lost on restart.
+# Admin password: chart generates a random one (kubectl get secret grafana -n monitoring ...). Not hardcoded.
+persistence:
+  enabled: false
+testFramework:
+  enabled: false
+resources:
+  requests: {cpu: 50m, memory: 128Mi}
+  limits: {cpu: 300m, memory: 384Mi}
+service:
+  type: ClusterIP
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-server.monitoring.svc.cluster.local
+        isDefault: true
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: cloudpilot
+        orgId: 1
+        folder: CloudPilot
+        type: file
+        disableDeletion: true
+        options:
+          path: /var/lib/grafana/dashboards/cloudpilot
+dashboardsConfigMaps:
+  cloudpilot: cloudpilot-dashboard
+grafana.ini:
+  analytics:
+    reporting_enabled: false
+    check_for_updates: false
+  users:
+    allow_sign_up: false

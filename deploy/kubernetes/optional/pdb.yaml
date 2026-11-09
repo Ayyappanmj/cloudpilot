@@ -1,0 +1,7 @@
+# With a single replica, minAvailable: 1 would block node drains - so maxUnavailable is used.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: cloudpilot, namespace: cloudpilot}
+spec:
+  maxUnavailable: 1
+  selector: {matchLabels: {app.kubernetes.io/name: cloudpilot}}

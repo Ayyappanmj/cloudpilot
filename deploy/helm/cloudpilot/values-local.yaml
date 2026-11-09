@@ -1,0 +1,10 @@
+# Used by scripts/deploy-local (Mode 2/4): image built locally and loaded into Kind (no registry).
+image:
+  repository: cloudpilot-sample
+  tag: "local"
+  pullPolicy: Never
+service:
+  type: NodePort
+  nodePort: 30080
+config:
+  CLOUDPILOT_ENABLE_FAULT_INJECTION: "true"

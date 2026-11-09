@@ -1,0 +1,46 @@
+# prometheus-community/prometheus chart, trimmed for an 8 GB laptop.
+# No Alertmanager, no Pushgateway, no node-exporter, no persistent volume.
+# Alert rules are injected by scripts/start-monitoring via --set-file (single source: monitoring/alerts/).
+alertmanager:
+  enabled: false
+prometheus-pushgateway:
+  enabled: false
+prometheus-node-exporter:
+  enabled: false
+kube-state-metrics:
+  enabled: true
+  resources:
+    requests: {cpu: 10m, memory: 32Mi}
+    limits: {cpu: 100m, memory: 128Mi}
+server:
+  retention: 2d
+  retentionSize: 1GB
+  global:
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    evaluation_interval: 30s
+  persistentVolume:
+    enabled: false
+  service:
+    type: ClusterIP
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+# Deterministic job name/labels for the app (no prometheus.io/* annotations needed).
+extraScrapeConfigs: |
+  - job_name: cloudpilot
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: [cloudpilot]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+        action: keep
+        regex: cloudpilot
+      - source_labels: [__meta_kubernetes_pod_container_port_name]
+        action: keep
+        regex: http
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: pod

@@ -1,0 +1,23 @@
+# Only for use WITHOUT Terraform. Terraform owns these objects otherwise.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudpilot
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: default-quota, namespace: cloudpilot}
+spec:
+  hard: {requests.cpu: 500m, requests.memory: 512Mi, limits.cpu: "1", limits.memory: 1Gi, pods: "10"}
+---
+apiVersion: v1
+kind: LimitRange
+metadata: {name: default-limits, namespace: cloudpilot}
+spec:
+  limits:
+    - type: Container
+      default: {cpu: 200m, memory: 256Mi}
+      defaultRequest: {cpu: 25m, memory: 32Mi}
+      max: {cpu: "1", memory: 1Gi}

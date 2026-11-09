@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars (ignored by git) only if you want to change defaults.
+kube_context = "kind-cloudpilot"
+app_namespace = "cloudpilot"
+
+app_quota = {
+  requests_cpu    = "500m"
+  requests_memory = "512Mi"
+  limits_cpu      = "1"
+  limits_memory   = "1Gi"
+  pods            = "10"
+}

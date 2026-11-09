@@ -1,0 +1,172 @@
+name: ci-cd
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["gitops/**", "docs/**", "**/*.md", "screenshots/**"]   # also stops the GitOps commit re-triggering CI
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}   # never cancel a publish in progress
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  test:
+    name: Lint + unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-python@v5.3.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Ruff
+        run: ruff check .
+      - name: Pytest
+        run: pytest --junitxml=test-results/junit.xml
+      - uses: actions/upload-artifact@v4.5.0
+        if: always()
+        with:
+          name: junit-results
+          path: test-results/junit.xml
+
+  validate-config:
+    name: Helm + Terraform validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - name: Helm lint and template
+        run: |
+          helm lint deploy/helm/cloudpilot
+          helm lint deploy/helm/cloudpilot -f gitops/environments/local/values.yaml
+          helm template cloudpilot deploy/helm/cloudpilot -f gitops/environments/local/values.yaml > /dev/null
+      - uses: hashicorp/setup-terraform@v3.1.2
+        with:
+          terraform_version: "1.9.8"
+      - name: Terraform fmt / init / validate
+        working-directory: infrastructure/terraform
+        run: |
+          terraform fmt -check -recursive
+          terraform init -backend=false -input=false
+          terraform validate
+
+  image:
+    name: Build, scan, publish image
+    needs: [test, validate-config]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write          # push to GHCR (only used on push to main)
+      security-events: write   # upload SARIF to the Security tab
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Compute image name and immutable tag
+        id: vars
+        run: |
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"   # GHCR requires lowercase
+          echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Trivy filesystem scan (dependencies, secrets, misconfig) - blocks on CRITICAL/HIGH
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Build image
+        run: |
+          docker build -f docker/Dockerfile \
+            --build-arg APP_VERSION=0.1.0 \
+            --build-arg GIT_COMMIT="${GITHUB_SHA}" \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            -t "${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.tag }}" .
+
+      - name: Trivy image scan -> SARIF (all severities, informational)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.tag }}
+          format: sarif
+          output: trivy-image.sarif
+          exit-code: "0"
+
+      - name: Upload SARIF to GitHub Security
+        if: always() && github.event_name != 'pull_request' && hashFiles('trivy-image.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3.28.0
+        with:
+          sarif_file: trivy-image.sarif
+
+      - name: Trivy image gate - fails on fixable CRITICAL/HIGH
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.tag }}
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image (SHA tag + latest) - same image that was scanned
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          IMAGE="${{ steps.vars.outputs.image }}"
+          TAG="${{ steps.vars.outputs.tag }}"
+          docker push "${IMAGE}:${TAG}"
+          docker tag "${IMAGE}:${TAG}" "${IMAGE}:latest"
+          docker push "${IMAGE}:latest"
+
+  gitops-update:
+    name: Update GitOps image tag
+    needs: image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write          # only this job can push commits
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - name: Set image.tag in gitops/environments/local/values.yaml
+        env:
+          TAG: ${{ needs.image.outputs.tag }}
+        run: |
+          FILE=gitops/environments/local/values.yaml
+          sed -i -E "s|^(  tag:).*|\1 \"${TAG}\"|" "$FILE"
+          grep -q "  tag: \"${TAG}\"" "$FILE" || { echo "tag update failed"; exit 1; }
+      - name: Commit and push (retry on race)
+        env:
+          TAG: ${{ needs.image.outputs.tag }}
+        run: |
+          if git diff --quiet; then echo "No change"; exit 0; fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore(gitops): deploy ${TAG} [skip ci]"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 3
+          done
+          echo "push failed after 3 attempts"; exit 1

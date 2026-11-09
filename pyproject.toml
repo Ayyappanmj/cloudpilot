@@ -1,0 +1,20 @@
+[project]
+name = "cloudpilot-sample-service"
+version = "0.1.0"
+description = "Sample FastAPI service deployed by the CloudPilot CI/CD and GitOps platform"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "UP"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff.lint.per-file-ignores]
+"monitoring/**" = ["E501"]   # dashboard generator keeps PromQL expressions on one line

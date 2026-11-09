@@ -1,0 +1,71 @@
+# Defaults are sized for an 8 GB laptop: ONE replica, small requests/limits.
+replicaCount: 1
+
+image:
+  repository: cloudpilot-sample
+  tag: "local"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []        # e.g. [{name: ghcr-pull}] only if the GHCR package is private
+
+serviceAccount:
+  create: true
+  name: ""
+
+# Rendered into a ConfigMap and injected with envFrom. No secrets here.
+config:
+  CLOUDPILOT_ENVIRONMENT: "local"
+  CLOUDPILOT_LOG_LEVEL: "INFO"
+  CLOUDPILOT_ENABLE_FAULT_INJECTION: "false"
+  CLOUDPILOT_MAX_SLOW_MS: "3000"
+  CLOUDPILOT_SIMULATE_NOT_READY: "false"
+
+containerPort: 8000
+
+service:
+  type: ClusterIP
+  port: 8000
+  nodePort: 30080           # used only when type is NodePort
+
+resources:
+  requests: {cpu: 50m, memory: 64Mi}
+  limits: {cpu: 250m, memory: 192Mi}
+
+startupProbe:
+  httpGet: {path: /healthz, port: http}
+  periodSeconds: 2
+  failureThreshold: 30
+livenessProbe:
+  httpGet: {path: /healthz, port: http}
+  periodSeconds: 10
+  timeoutSeconds: 2
+readinessProbe:
+  httpGet: {path: /readyz, port: http}
+  periodSeconds: 5
+  timeoutSeconds: 2
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  seccompProfile: {type: RuntimeDefault}
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: {drop: [ALL]}
+
+# Needs metrics-server. Off by default (see docs/KUBERNETES.md).
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+
+# With 1 replica a PDB with minAvailable: 1 would block node drains, so it is off by default.
+podDisruptionBudget:
+  enabled: false
+  maxUnavailable: 1
+
+# Kind's default CNI may not enforce NetworkPolicy (see docs/KUBERNETES.md).
+networkPolicy:
+  enabled: true
