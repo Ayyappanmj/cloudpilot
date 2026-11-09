@@ -208,25 +208,6 @@ cloudpilot/
 
 ---
 
-## 📚 Engineering Documentation Index
-
-Detailed runbooks, architectural deep dives, and interview prep guides are available in `/docs`:
-
-- [Architecture & Design Principles](docs/ARCHITECTURE.md)
-- [CI/CD & Supply Chain Pipeline](docs/CI_CD.md)
-- [GitOps with Argo CD](docs/GITOPS.md)
-- [Infrastructure as Code (Terraform)](docs/TERRAFORM.md)
-- [Kubernetes Hardening & Pod Security](docs/KUBERNETES.md)
-- [Monitoring & Alert Design](docs/MONITORING.md)
-- [Security Model & Vulnerability Policy](docs/SECURITY.md)
-- [10 Real-World Failure Drills](docs/FAILURE_SIMULATION.md)
-- [Troubleshooting & Runbooks](docs/TROUBLESHOOTING.md)
-- [Hardware Tuning for 8 GB Laptops](docs/HARDWARE_REQUIREMENTS.md)
-- [50 DevOps Interview Questions & Answers](docs/INTERVIEW_QUESTIONS.md)
-- [10-Minute Recruiter Demo Guide](docs/DEMO_GUIDE.md)
-
----
-
 ## 👨‍💻 Author & Contributions
 
 Built by **Ayyappan** to demonstrate real-world cloud-native engineering practices.
